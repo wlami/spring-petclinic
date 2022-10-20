@@ -8,6 +8,7 @@ on:
     branches: [ main, dev ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -27,3 +28,18 @@ jobs:
           cache: maven
       - name: Build with Maven Wrapper
         run: ./mvnw -B package
+      - name: Build, tag docker with spring boot
+        run: ./mvnw spring-boot:build-image -Dspring-boot.build-image.imageName=wlami/petclinic
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      - name: tag and push docker image to Amazon ECR
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: petclinic
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker tag wlami/petclinic $REGISTRY/$REPOSITORY:$IMAGE_TAG
+          docker tag wlami/petclinic $REGISTRY/$REPOSITORY:latest
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+          docker push $REGISTRY/$REPOSITORY:latest
